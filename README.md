@@ -1,7 +1,7 @@
 # IliasCrawler
 ## ACHTUNG:
-Dieses Programm ist zum herunterladen von Iliasinhalten als Privatkopie gedacht, um auch z.B. wenn das Ilias offline ist oder wenn du um Zug unterwegs bist lernen zu können.  
-Bitte verwende das Programm nur um Iliasinhalte für dich selbst herunterzuladen und gebe die Dateien nur mit ausdrücklicher Erklaubnis der Copyright-Inhaber an andere weiter!  
+Dieses Programm ist zum herunterladen von Ilias-Inhalten als Privatkopie gedacht, um auch z.B. wenn das Ilias offline ist oder wenn du um Zug unterwegs bist lernen zu können.  
+Bitte verwende das Programm nur um Ilias-Inhalte für dich selbst herunterzuladen und gebe die Dateien nur mit ausdrücklicher Erklaubnis der Copyright-Inhaber an andere weiter!  
 ## Installation
 1. Python installieren  
   Lade dir Python auf https://www.python.org/ herunter und installiere es
