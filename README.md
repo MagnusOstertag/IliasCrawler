@@ -15,3 +15,8 @@
 Es sollte sich eine Kommandozeile öffnen bei welcher Pfad vor dem Cursor der Pfad in dem das Programm liegt ist.  
 
 Nun sollten alles vorbereitet sein und du kannst das Programm mit "python iliasCrawler.py" starten.  
+
+
+## Lizenzen
+Dieses Programm verwendet FFmpeg.  
+Der FFmpeg-Sourcecode wurde unverändert übernommen und kompiliert von https://www.gyan.dev/ffmpeg/builds/ bezogen.
