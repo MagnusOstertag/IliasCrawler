@@ -9,8 +9,9 @@
   Öffne die Kommandozeile deines PCs ("cmd" in der Windows-Suche) und führe "python -m pip install requests" aus
 3. BeautifulSoup installieren:  
   Führe in der Kommandozeile "python -m pip install bs4" aus
+4. Öffne die Datei iliasCrawler.py mit einem Texteditor und gebe bei username und password deine Ilias-Anmeldedaten ein. Füge bei baseUrl den link zu dem Kurs ein, welchen du herunterladen willst.  
+5. Öffne nun eine Kommandozeile im Ordner des Programms indem du im Windows-Explorer in die Dateipfadleiste klickst, "cmd" eingibst und enter drückst.  
 
-Öffne die Datei iliasCrawler.py mit einem Texteditor und gebe bei username und password deine Ilias-Anmeldedaten ein. Füge bei baseUrl den link zu dem Kurs ein, welchen du herunterladen willst.  
-Öffne nun eine Kommandozeile im Ordner des Programms indem du im Windows-Explorer in die Dateipfadleiste klickst, "cmd" eingibst und enter drückst.  
 Es sollte sich eine Kommandozeile öffnen bei welcher Pfad vor dem Cursor der Pfad indem das Programm liegt ist.  
+
 Nun sollten alles vorbereitet sein und du kannst das Programm mit "python iliasCrawler.py" starten.  
