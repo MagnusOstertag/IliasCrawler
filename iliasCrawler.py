@@ -11,6 +11,18 @@ import subprocess
 username = "test"
 password = "test"
 
+
+print("BITTE KEINE HERUNTERGELADENEN DATEIEN WEITERGEBEN!")
+print("Dieses Programm ist nur zum Herunterladen von Dateien zum Offline lernen gedacht")
+print("Das Copyright der Ersteller der Inhalte gilt trotzdem!")
+print("")
+print("Gebe J ein wenn du einverstanden bist:")
+userConsent = input(">>> ")
+if userConsent.lower() not in "yj":
+    print("Dann darfst du das Programm leider nicht benutzen.")
+    exit()
+print("Vielen Dank.")
+
 if username == "test" or password == "test":
     print("Please change login info in iliasCrawler.py")
     exit()
