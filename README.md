@@ -1,5 +1,5 @@
 # IliasCrawler
-## ACHTUNG:
+## ⚠️ ACHTUNG ⚠️
 #### Dieses Programm ist zum herunterladen von Ilias-Inhalten als Privatkopie gedacht, um auch z.B. wenn das Ilias offline ist oder wenn du um Zug unterwegs bist lernen zu können.  
 #### Bitte verwende das Programm nur um Ilias-Inhalte für dich selbst herunterzuladen und gebe die Dateien nur mit ausdrücklicher Erlaubnis der Copyright-Inhaber an andere weiter!  
 ## Installation
