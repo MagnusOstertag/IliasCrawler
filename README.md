@@ -2,6 +2,11 @@
 ## ⚠️ ACHTUNG ⚠️
 #### Dieses Programm ist zum herunterladen von Ilias-Inhalten als Privatkopie gedacht, um auch z.B. wenn das Ilias offline ist oder wenn du um Zug unterwegs bist lernen zu können.  
 #### Bitte verwende das Programm nur um Ilias-Inhalte für dich selbst herunterzuladen und gebe die Dateien nur mit ausdrücklicher Erlaubnis der Copyright-Inhaber an andere weiter!  
+##### Spreche die Verwendung des Programms im zweifelsfall mit dem Ersteller der Kurse ab bevor du es verwendest!
+
+#### Bitte beachte dass du das Programm nicht zu häufig einsetzt um die Server des Ilias nicht zu überlasten.
+#### Aktiviere gegebenenfalls "antiDosRateLimit" im Skript um Pausen zwischen einzelnen Downloads zu erzeugen und die Belastung des Netzwerks zu verringern.
+
 ## Installation
 1. Python installieren  
   Lade dir Python auf https://www.python.org/ herunter und installiere es
