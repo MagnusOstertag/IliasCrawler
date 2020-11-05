@@ -5,7 +5,7 @@ import re
 import time
 import json
 import subprocess
-
+import sys
 
 username = "test"
 password = "test"
@@ -24,7 +24,21 @@ print("Vielen Dank.")
 
 if username == "test" or password == "test":
     print("Please change login info in iliasCrawler.py")
-    exit()
+    #exit()
+
+try:
+    with open('lastRun.dat', 'r') as file:
+        data = file.read().replace('\n', '')
+        data = float(data)
+        print(data)
+        if time.time() - data < 20:
+            print("Please do not run this script too frequently.")
+            print("Wait " + str(int(time.time() - data + 0.5) + 5) + " seconds and try again...")
+            exit()
+except FileNotFoundError:
+    pass
+
+#exit()
 
 
 baseUrl = "https://ilias3.uni-stuttgart.de/goto_Uni_Stuttgart_crs_2088402.html"
@@ -34,7 +48,7 @@ useColorama = False
 loadFiles = True
 loadMediacast = True
 loadOpencast = True
-overrideLoginCheck = False
+overrideLoginCheck = True
 stitchSideBySideVideos = True
 antiDosRateLimit = False
 
@@ -363,5 +377,8 @@ with requests.Session() as s:
         with open("log.txt", 'w') as f:
             f.write(logStr)
         print("done")
+
+        with open("lastRun.dat", 'w') as f:
+            f.write(str(time.time()))
     else:
         printIndented("login failed... check Login Data or try skipping login check by using overrideLoginCheck", 0, col="fr")
