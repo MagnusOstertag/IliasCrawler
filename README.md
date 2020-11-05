@@ -21,6 +21,9 @@ Es sollte sich eine Kommandozeile öffnen bei welcher Pfad vor dem Cursor der Pf
 
 Nun sollten alles vorbereitet sein und du kannst das Programm mit "python iliasCrawler.py" starten.  
 
+## Todo:
+1. Kein neues Herunterladen von bereits geladenen Dateien
+2. Support von zusätzlichen Ilias-Strukturen (Eingebetteter Text in Ordnern, Speichern von links, etc.)
 
 ## Lizenzen
 Dieses Programm verwendet FFmpeg.  
