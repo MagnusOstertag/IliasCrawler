@@ -1,384 +1,357 @@
-import requests
-import bs4
-import os
 import re
-import time
-import json
-import subprocess
-import sys
+from json import loads
+from os.path import join
+from logging import INFO, DEBUG, WARNING, ERROR, FATAL
+from pdb import set_trace
+from sys import exit
 
-username = "test"
-password = "test"
+import bs4
+import requests
 
+from utils import mkdir, rate_limit_sleep, log, clean_text
 
-print("BITTE KEINE HERUNTERGELADENEN DATEIEN WEITERGEBEN!")
-print("Dieses Programm ist nur zum Herunterladen von Dateien zum Offline lernen gedacht")
-print("Das Copyright der Ersteller der Inhalte gilt trotzdem!")
-print("")
-print("Gebe J ein wenn du einverstanden bist:")
-userConsent = input(">>> ")
-if userConsent.lower() not in "yj":
-    print("Dann darfst du das Programm leider nicht benutzen.")
-    exit()
-print("Vielen Dank.")
+ILIAS_URL = 'https://ilias3.uni-stuttgart.de'
 
-if username == "test" or password == "test":
-    print("Please change login info in iliasCrawler.py")
-    #exit()
+BASE_URL = f'{ILIAS_URL}/goto_Uni_Stuttgart_crs_2122525.html'  # theo1
+BASE_URL = f'{ILIAS_URL}/goto_Uni_Stuttgart_crs_2091913.html'  # irtm
 
-try:
-    with open('lastRun.dat', 'r') as file:
-        data = file.read().replace('\n', '')
-        data = float(data)
-        print(data)
-        if time.time() - data < 20:
-            print("Please do not run this script too frequently.")
-            print("Wait " + str(int(time.time() - data + 0.5) + 5) + " seconds and try again...")
-            exit()
-except FileNotFoundError:
-    pass
-
-#exit()
-
-
-baseUrl = "https://ilias3.uni-stuttgart.de/goto_Uni_Stuttgart_crs_2088402.html"
-
-enableColors = False
-useColorama = False
-loadFiles = True
-loadMediacast = True
-loadOpencast = True
-overrideLoginCheck = True
+download_files = True
+download_mediacast = True
+download_opencast = True
+overrideLoginCheck = False
 stitchSideBySideVideos = True
-antiDosRateLimit = False
+
+unknown_files = 0
 
 
-logStr = ""
+def crawler(session, url, path, create_course_folder=False, indent=0):
+    global unknown_files
+    log(DEBUG, f'Crawling {path}', indent)
+    response = session.post(url)
+    soup = bs4.BeautifulSoup(response.text, 'html.parser')
 
-unknownFilesFound = 0
+    if create_course_folder:
+        current_course_title = soup.find(id='il_mhead_t_focus').contents[0]
+        path = join(path, current_course_title)
+        mkdir(path)
 
-if useColorama:
-    import colorama
-    colorama.init()
-
-def textCol(col):
-    global enableColors
-    escCodes = {
-        "0":   "",
-        "rst": "\033[0m",       # reset all (colors and brightness)
-        "brt": "\033[1m",       # bright
-        "dim": "\033[2m",       # dim (looks same as normal brightness)
-        "nrm": "\033[22m",      # normal brightness
-
-        # FOREGROUND:
-        "fblck": "\033[30m",      # black
-        "fr": "\033[31m",      # red
-        "fg": "\033[32m",      # green
-        "fy": "\033[33m",      # yellow
-        "fb": "\033[34m",      # blue
-        "fm": "\033[35m",      # magenta
-        "fc": "\033[36m",      # cyan
-        "fw": "\033[37m",      # white
-        "frst": "\033[39m",      # reset
-
-        # BACKGROUND
-        "bblck": "\033[40m",      # black
-        "br": "\033[41m",      # red
-        "bg": "\033[42m",      # green
-        "by": "\033[43m",      # yellow
-        "bb": "\033[44m",      # blue
-        "bm": "\033[45m",      # magenta
-        "bc": "\033[46m",      # cyan
-        "bw": "\033[47m",      # white
-        "brst": "\033[49m",      # reset
-
-        # clear the screen
-        "clsc": "\033[mode J",    # clear the screen
-
-        # clear the line
-        "clln": "\033[mode K"    # clear the line
-    }
-    if enableColors:
-        return escCodes[col]
-    else:
-        return ""
-
-def mkdir(path):
-    try:
-        os.mkdir(path)
-    except FileExistsError:
-        pass
-
-
-def printIndented(str, indent, end="\n", col="0"):
-    global logStr
-    print(textCol(col) + "    " * indent + str + textCol("rst"), end=end, flush=True)
-    logStr += "    " * indent + str + end
-
-def rateLimitSleep():
-    global antiDosRateLimit
-    if antiDosRateLimit:
-        time.sleep(3)
-
-def crawlDir(session, url, path, createBaseFolder = False, indent=0):
-    global unknownFilesFound
-    global rateLimitSleep
-
-    #printIndented("Crawling " + path + " at " + url, indent)
-
-    r = s.request("POST", url)
-
-    soup = bs4.BeautifulSoup(r.text, 'html.parser')
-
-    if createBaseFolder:
-        currentTitle = soup.find(id="il_mhead_t_focus").contents[0]
-
-        printIndented(currentTitle, indent)
-
-        mkdir(path + "/" + currentTitle)
-
-        path += "/" + currentTitle
-
-    links = soup.findAll('a',attrs={'class':'il_ContainerItemTitle'})
-
-    rateLimitSleep()
+    links = soup.findAll('a', attrs={'class': 'il_ContainerItemTitle'})
+    rate_limit_sleep()
 
     for link in links:
-        if "_fold_" in link["href"]:
-            folderTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(folderTitle, indent+1)
-            folderPath = path + "/" + folderTitle
-            mkdir(folderPath)
-            crawlDir(session, link["href"], folderPath, indent=indent+1)    # recursively crawl the next Folder
+        title = clean_text(link.contents[0])
+        log(INFO, title, indent + 1)
 
-        elif "_file_" in link["href"]:
-            fileTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(fileTitle, indent+1, col="fr")
+        if '_fold_' in link['href']:
+            folder_path = join(path, title)
+            mkdir(folder_path)
+            crawler(session, link['href'], folder_path, indent=indent + 1)
 
-            if loadFiles:
-                r = s.request("GET", link["href"])
+        elif '_file_' in link['href']:
+            if download_files:
+                response = session.get(link['href'])
 
-                d = r.headers['content-disposition']
-                fileName = re.findall("filename=\"(.+?)\"", d)[0]
+                disposition = response.headers['content-disposition']
+                file_name = re.findall('filename=\"(.+?)\"', disposition)[0]
 
-                printIndented(fileName, indent+2, col="fr")
+                log(INFO, file_name, indent + 2)
 
-                filePath = path + "/" + fileName
+                with open(join(path, file_name), 'wb') as file:
+                    file.write(response.content)
 
-                with open(filePath, 'wb') as f:
-                    f.write(r.content)
+                rate_limit_sleep()
 
-                rateLimitSleep()
+        elif 'ilMediaCastHandler' in link['href']:
+            log(ERROR, 'TODO')
+            if download_mediacast:
+                overview_page_url = f'{ILIAS_URL}/{link["href"]}'
 
-        elif "ilMediaCastHandler" in link["href"]:
-            mediacastTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(mediacastTitle, indent+1)
+                response = session.get(overview_page_url)
 
-            if loadMediacast:
+                soup = bs4.BeautifulSoup(response.text, 'html.parser')
 
-                overviewPageUrl = "https://ilias3.uni-stuttgart.de/" + link["href"]
+                download_links = soup.findAll('a', text='Download')
 
-                r = s.request("GET", overviewPageUrl)
+                rate_limit_sleep()
 
-                soup = bs4.BeautifulSoup(r.text, 'html.parser')
+                if len(download_links) > 0:
+                    download_link = download_links[0]
+                    meta_data = download_link.nextSibling.strip()
 
-                downloadLinks = soup.findAll('a',text="Download")
+                    response = session.head(
+                        f'{ILIAS_URL}/{download_link["href"]}')
 
-                rateLimitSleep()
+                    disposition = response.headers['content-disposition']
+                    file_name = re.findall(
+                        'filename=\"(.+?)\"', disposition)[0]
 
-                if len(downloadLinks) > 0:
-                    downloadLink = downloadLinks[0]
-                    metaData = downloadLink.nextSibling.strip()
+                    log(INFO, f'{file_name} {meta_data}', indent + 1)
 
-                    r = s.head("https://ilias3.uni-stuttgart.de/" + downloadLink["href"])
+                    log(INFO, 'Downloading Media... ', indent+2)
 
-                    d = r.headers['content-disposition']
-                    fileName = re.findall("filename=\"(.+?)\"", d)[0]
+                    response = session.get(
+                        '{ILIAS_URL}/{download_link["href"]}')
 
-                    printIndented(fileName + " " + metaData, indent + 1)
+                    disposition = response.headers['content-disposition']
+                    file_name = re.findall(
+                        'filename=\"(.+?)\"', disposition)[0]
 
-                    printIndented("Downloading Media... ", indent+2, end="")
+                    file_path = join(path, file_name)
 
-                    r = s.request("GET", "https://ilias3.uni-stuttgart.de/" + downloadLink["href"])
+                    with open(file_path, 'wb') as file:
+                        file.write(response.content)
 
-                    d = r.headers['content-disposition']
-                    fileName = re.findall("filename=\"(.+?)\"", d)[0]
+                    log(INFO, 'done')
 
-                    filePath = path + "/" + fileName
-
-                    with open(filePath, 'wb') as f:
-                        f.write(r.content)
-
-                    printIndented("done", indent=0)
-
-                    rateLimitSleep()
+                    rate_limit_sleep()
 
                 else:
-                    printIndented("ERROR: Mediacast Element without Download link found", indent+2)
-                    printIndented("Error URL: " + overviewPageUrl, indent+2)
+                    log(ERROR,
+                        'Mediacast Element without Download link found',
+                        indent + 2)
+                    log(ERROR, f'URL: {overview_page_url}', indent + 2)
 
-        elif "ilObjPluginDispatchGUI" in link["href"]:
-            opencastTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(opencastTitle, indent+1)
+        elif 'ilObjPluginDispatchGUI' in link['href']:
+            opencast_title = title
+            log(INFO, opencast_title, indent + 1)
+            mkdir(join(path, opencast_title))
 
-            mkdir(path + "/" + opencastTitle)
+            if not download_opencast:
+                continue
 
-            if loadOpencast:
+            response = session.get(f'{ILIAS_URL}/{link["href"]}')
+            soup = bs4.BeautifulSoup(response.text, 'html.parser')
+            # video_links = soup.find_all('video')
 
-                overviewPageUrl = "https://ilias3.uni-stuttgart.de/" + link["href"]
+            # for link in video_links:
+            #     link = link.findChildren('source')[0]
+            #     log(WARNING, 'todo')
+            #     response = session.get(
+            #         f'{ilias_url}/{link["src"].lstrip(".")}')
+            #     file_name = re.findall('\/([-.\w]+?)\?', link['src'])[0]
+            #     file_path = join(path, opencast_title, file_name)
+            #     with open(file_path, 'wb') as f:
+            #         f.write(response.content)
+            #
+            object_links = soup.find_all('a', href=re.compile('showEpisode'))
 
-                r = s.request("GET", overviewPageUrl)
+            if len(object_links) < 1:
+                log(INFO, 'no Elements found')
+                continue
 
-                soup = bs4.BeautifulSoup(r.text, 'html.parser')
+            # Experimental: Only use links that only contain text so the
+            # preview image links are ignored! (check if only one child in <a>
+            # tag?)
+            for object_link in object_links:
+                object_name = object_link.contents[0]
+                if isinstance(object_name, bs4.element.Tag):
+                    log(DEBUG, 'Skipping link')
+                    continue
 
-                videoLinks = soup.find_all("video")
+                # crawlDir(
+                #         session,
+                #         f'{ilias_url}/{link["href"]}',
+                #         path,
+                #         indent=indent + 1)
+                # continue
 
-                for link in videoLinks:
-                    link = link.findChildren("source")[0]
-                    print(link)
-                    r = s.request("GET", "https://ilias3.uni-stuttgart.de" + link["src"].lstrip("."))
+                object_href = object_link['href']
+                mkdir(join(path, opencast_title, object_name))
+                log(INFO, object_name, indent + 2)
 
-                    fileName = re.findall("\/([-.\w]+?)\?", link["src"])[0]
+                object_id = re.findall('&id=(.+?)&', object_href)[0]
+                object_metadata_url = (
+                    f'{ILIAS_URL}/Customizing/global/plugins/Services/'
+                    'Repository/RepositoryObject/Opencast/api.php/'
+                    f'episode.json?id={object_id}')
+                response = session.get(object_metadata_url)
+                object_metadata_parsed = loads(response.text)
+                object_track_list = object_metadata_parsed[
+                    'search-results'][
+                        'result']['mediapackage']['media']['track']
 
-                    filePath = path + "/" + opencastTitle + "/" + fileName
+                track_path_list = []
 
-                    with open(filePath, 'wb') as f:
-                        f.write(r.content)
+                for track in object_track_list:
+                    track_url = track['url']
+                    track_id = track['id']
+                    track_extension = re.findall('\.(\w+?)\?', track_url)[0]
 
-                objectLinks = soup.find_all("a", href=re.compile("showEpisode"))
+                    file_path = join(
+                        path,
+                        opencast_title,
+                        object_name,
+                        f'{track_id}.{track_extension}')
 
-                if len(objectLinks) < 1:
-                    pass
-                    #print("no Elements found")
+                    track_path_list.append(file_path)
 
-                for link in objectLinks:    # Experimental: Only use links that only contain text so the preview image links are ignored! (check if only one child in <a> tag?)
-                    objectName = link.contents[0]
-                    if type(objectName) != bs4.element.Tag:
-                        #print("using link")
-                        objectLink = link["href"]
-                        mkdir(path + "/" + opencastTitle + "/" + objectName)
-                        printIndented(objectName, indent+2)
+                    log(INFO,
+                        f'Downloading {track_id}.{track_extension} ...',
+                        indent + 3)
+                    response = session.get(track_url)
 
-                        #objectPageUrl = "https://ilias3.uni-stuttgart.de/" + link["href"]
+                    with open(file_path, 'wb') as file:
+                        file.write(response.content)
 
-                        #r = s.request("GET", "https://ilias3.uni-stuttgart.de/" + objectLink)
+                # trackFolderPath = join(path, opencast_title, object_name)
 
-                        objectId = re.findall("&id=(.+?)&", objectLink)[0]
+                if len(track_path_list) > 1:
+                    log(INFO, 'should be stacked')
+                    # log(INFO, 'Stacking videos with ffmpeg...', indent + 4)
+                #
+                    # callList = [
+                    #         'ffmpeg\\bin\\ffmpeg.exe',
+                    #         '-hide_banner', '-loglevel', 'warning']
+                #
+                #     for trackPath in trackPathList:
+                #         callList.extend(['-i', trackPath])
+                #
+                    # callList.extend([
+                    #     '-filter_complex',
+                    #     'hstack=inputs=' + str(
+                    #         len(trackPathList)),
+                    #     trackFolderPath+'/stacked.mp4','-y'])
+                #
+                #     subprocess.run(callList)
+                #
+                #     log(INFO, 'done', 0)
+                else:
+                    log(INFO,
+                        'no ffmpeg stacking needed, only 1 video available',
+                        indent + 4)
 
-                        objectMetadataUrl = "https://ilias3.uni-stuttgart.de/Customizing/global/plugins/Services/Repository/RepositoryObject/Opencast/api.php/episode.json?id=" + objectId
+        elif 'ilobjtestgui' in link['href']:
+            test_title = title
+            log(INFO, test_title, indent + 1)
+            log(WARNING, 'ignoring Test (No way to store as file)', indent + 2)
 
-                        r = s.request("GET", objectMetadataUrl)
+        elif 'ilHTLMPresentationGUI' in link['href']:
+            html_title = title
+            log(INFO, html_title, indent + 1)
+            log(WARNING,
+                'ignoring HTML content (No way to store as file)', indent + 2)
 
-                        #print(r.text)
+        elif 'ilLinkResourceHandlerGUI' in link['href']:
+            link_title = title
+            log(INFO, link_title, indent + 1)
+            log(WARNING,
+                'ignoring Link content (No way to store as file)', indent + 2)
 
-                        objectMetadata = r.text
+        elif '_xlvo_' in link['href']:
+            vote_title = title
+            log(INFO, vote_title, indent + 1)
+            log(WARNING,
+                'ignoring Vote (No way to store as file)', indent + 2)
 
-                        objectMetadataParsed = json.loads(r.text)
+        elif '_frm_' in link['href']:
+            log(WARNING,
+                'ignoring Forum (No way to store as file)', indent + 2)
 
-                        objectTrackList = objectMetadataParsed["search-results"]["result"]["mediapackage"]["media"]["track"]
+        elif '_exc_' in link['href']:
+            # TODO maybe download more files/ not only links with "Download"
+            # maybe also save the text
+            # TODO download handed in assignments
+            if not download_files:
+                continue
 
-                        trackPathList = []
+            response = session.get(link['href'])
+            soup = bs4.BeautifulSoup(response.text, 'html.parser')
 
-                        for track in objectTrackList:
-                            trackUrl = track["url"]
+            # Only get links with the text 'Download'
+            assignment_links = [x for x in filter(
+                lambda x: len(x.contents) > 0 and x.contents[0] == 'Download',
+                soup.find_all('a'))]
 
-                            trackExtension = re.findall("\.(\w+?)\?", trackUrl)[0]
+            # Nothing to do if there are no links
+            if len(assignment_links) < 1:
+                log(DEBUG, 'No download links found', indent + 1)
+                continue
 
-                            printIndented(track["id"] + "." + trackExtension, indent+3)
-                            #printIndented(trackUrl, indent+3)
+            mkdir(join(path, title))
+            log(DEBUG,
+                f'Found {len(assignment_links)} download link(s)', indent + 1)
 
-                            filePath = path + "/" + opencastTitle + "/" + objectName + "/" + track["id"] + "." + trackExtension
+            # Download all files from the assignments page
+            for assignment_link in assignment_links:
+                response = session.get(
+                    f'{ILIAS_URL}/{assignment_link["href"]}')
+                disposition = response.headers['content-disposition']
+                file_name = re.findall('filename=\"(.+?)\"', disposition)[0]
+                if not file_name:
+                    log(ERROR,
+                        'Couldn\'t get file name for'
+                        f'{assignment_link["href"]}',
+                        indent + 2)
+                    continue
 
-                            trackPathList.append(filePath)
+                log(INFO, file_name, indent + 2)
 
-                            printIndented("Loading Media...", indent+4, end="")
-                            r = s.request("GET", trackUrl)
+                file_path = join(path, title)
+                mkdir(file_path)
 
-                            with open(filePath, 'wb') as f:
-                                f.write(r.content)
+                with open(join(file_path, file_name), 'wb') as file:
+                    file.write(response.content)
 
-                            printIndented("done", indent+0)
+                rate_limit_sleep()
 
-                        trackFolderPath = path + "/" + opencastTitle + "/" + objectName
-
-                        if len(trackPathList) > 1:
-                            printIndented("Stacking videos with ffmpeg...", indent+4, end="")
-
-                            callList = ["ffmpeg\\bin\\ffmpeg.exe", "-hide_banner", "-loglevel", "warning"]
-
-                            for trackPath in trackPathList:
-                                callList.extend(["-i", trackPath])
-
-                            callList.extend(["-filter_complex","hstack=inputs=" + str(len(trackPathList)),trackFolderPath+"/stacked.mp4","-y"])
-
-                            subprocess.run(callList)
-
-                            printIndented("done", 0)
-                        else:
-                            printIndented("no ffmpeg stacking needed, only 1 video available", indent+4)
-                    else:
-                        pass
-                        #print("skipped link")
-
-        elif "ilobjtestgui" in link["href"]:
-            testTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(testTitle, indent+1)
-            printIndented("WARNING: ignoring Test (No way to store as file)", indent+2, col="fm")
-
-        elif "ilHTLMPresentationGUI" in link["href"]:
-            htmlTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(htmlTitle, indent+1)
-            printIndented("WARNING: ignoring HTML content (No way to store as file)", indent+2, col="fm")
-
-        elif "ilLinkResourceHandlerGUI" in link["href"]:
-            linkTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(linkTitle, indent+1)
-            printIndented("WARNING: ignoring Link content (No way to store as file)", indent+2, col="fm")
-
-        elif "_xlvo_" in link["href"]:
-            voteTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(voteTitle, indent+1)
-            printIndented("WARNING: ignoring Vote (No way to store as file)", indent+2, col="fm")
-
-        elif "_frm_" in link["href"]:
-            forumTitle = link.contents[0].strip().replace("/", "-").replace("?", "")
-            printIndented(forumTitle, indent+1)
-            printIndented("WARNING: ignoring Forum (No way to store as file)", indent+2, col="fm")
+        # elif '_lm_' in link['href']:
 
         else:
-            unknownFilesFound += 1
-            printIndented("Unknown Element", indent+1, col="fr")
-            printIndented("ERROR: Unknown Element found!", indent+2, col="fm")
-            printIndented(link["href"], indent+2)
+            log(ERROR, 'Unknown Element found!', indent + 2)
+            log(ERROR, link['href'], indent + 2)
+            unknown_files += 1
 
 
+def login(session):
+    try:
+        with open('.iliassecret') as cred_file:
+            username, password = cred_file.readlines()
+    except Exception as ex:
+        log(WARNING,
+            f'Couldn\'t read credentials file at ./.iliassecret: {ex}')
+        username = input('Please enter a username: ')
+        from getpass import getpass
+        password = getpass('Please enter a password: ')
 
-printIndented("starting", indent=0)
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    response = session.post(
+        f'{ILIAS_URL}/ilias.php?'
+        'lang=de&client_id=Uni_Stuttgart&cmd=post&cmdClass=ilstartupgui'
+        '&cmdNode=zq&baseClass=ilStartUpGUI&rtoken=',
+        data={
+            'username': username.strip(),
+            'password': password.strip(),
+            'cmd[doStandardAuthentication]': 'Anmelden'},
+        headers=headers)
+    if 'Abmelden' not in response.text:
+        log(FATAL,
+            'login failed... '
+            'check Login Data or try skipping login check '
+            'by using overrideLoginCheck')
+        exit(1)
+    log(INFO, 'Login successful')
 
-with requests.Session() as s:
 
-    if not "_crs_" in baseUrl:
-        printIndented("INPUT URL DOES NOT APPEAR TO BE A COURSE, SUPPORT NOT TESTED", 0, col="fr")
+if __name__ == '__main__':
+    log(INFO, 'Starting')
+    with requests.Session() as session:
+        if '_crs_' not in BASE_URL:
+            log(WARNING,
+                'INPUT URL DOES NOT APPEAR TO BE A COURSE, SUPPORT NOT TESTED')
 
-    headers = {'Content-Type':'application/x-www-form-urlencoded'}
+        login(session)
 
-    r = s.request("POST", "https://ilias3.uni-stuttgart.de/ilias.php?lang=de&client_id=Uni_Stuttgart&cmd=post&cmdClass=ilstartupgui&cmdNode=zq&baseClass=ilStartUpGUI&rtoken=", data="username=" + username + "&password=" + password + "&cmd%5BdoStandardAuthentication%5D=Anmelden", headers=headers)
+        # TODO make this configurable
+        output_dir = 'temp'
+        mkdir(output_dir)
 
-    if "Abmelden" in r.text or overrideLoginCheck:
-        printIndented("logged in", indent=0)
+        log(INFO, 'Starting crawler')
+        crawler(session, BASE_URL, output_dir, create_course_folder=True)
 
-        mkdir("temp")
-
-        printIndented("starting crawling\n", indent=0)
-        crawlDir(s, baseUrl, "temp", createBaseFolder = True)
-        printIndented("\ndone", indent=0)
-        printIndented("Unknown Files: " + str(unknownFilesFound), indent=0)
-        print("Writing Lofile...", end="", flush=True)
-        with open("log.txt", 'w') as f:
-            f.write(logStr)
-        print("done")
-
-        with open("lastRun.dat", 'w') as f:
-            f.write(str(time.time()))
-    else:
-        printIndented("login failed... check Login Data or try skipping login check by using overrideLoginCheck", 0, col="fr")
+        if unknown_files > 0:
+            log(WARNING,
+                'There were some unknown files that couldn\'t be downloaded.')
+            log(WARNING,
+                f'A total of {str(unknown_files)} file(s) were skipped, '
+                'for more information please consult the logs.')
+        log(INFO, f'Finished downloading {BASE_URL}.')
