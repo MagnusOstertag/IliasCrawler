@@ -13,7 +13,7 @@ class Config:
                 'ilias.php?lang=de&client_id=Uni_Stuttgart&cmd=post'
                 '&cmdClass=ilstartupgui&cmdNode=zq'
                 '&baseClass=ilStartUpGUI&rtoken='),
-            'save_path': './ilias_files',
+            'save_path': 'ilias_files',
         }
 
     def update(self, new_config):

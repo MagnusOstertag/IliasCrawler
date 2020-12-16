@@ -46,10 +46,9 @@ class IliasCrawler:
             pass# }}}
 
     def start(self):# {{{
-        mkdir(self.config.save_path)
         self.login()
         log(INFO, 'Starting crawler')
-        self.crawl(self.config.home_url, self.config.save_path)# }}}
+        self.crawl(self.config.home_url)# }}}
 
     def login(self):# {{{
         try:
