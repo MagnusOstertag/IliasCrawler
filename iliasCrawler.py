@@ -4,7 +4,7 @@ from json.decoder import JSONDecodeError
 from os.path import join
 from logging import INFO, DEBUG, WARNING, ERROR, FATAL
 from pdb import set_trace
-from sys import exit
+from sys import exit, stdout
 
 import requests
 from bs4 import BeautifulSoup as bs
@@ -76,7 +76,7 @@ class IliasCrawler:
             exit(1)
         log(INFO, 'Login successful')# }}}
 
-    def crawl(self, ilias_link, parent_path=''):
+    def crawl(self, ilias_link, parent_path=''):# {{{
         '''This method crawls an ilias link for different subsections and
         invoke the corrensponding subroutines.'''
         # TODO can there be courses inside of courses?
@@ -106,21 +106,19 @@ class IliasCrawler:
         mkdir(path)
 
         for link in links:
-            # set_trace()
-            if '_fold_' in link['href']:
+            if '_fold_' in link['href'] or '_crs_' in link['href']:
+                # XXX can we safely assume the link name is the name of the
+                # course?
+                self.crawl(link, path)
+
+            elif 'cmd=infoScreen' in link['href']:
                 self.crawl(link, path)
 
             elif '_grp_' in link['href']:
                 log(WARNING, 'Groups are not supported yet.')
 
             elif '_frm_' in link['href']:
-                log(WARNING,
-                    'Forums are not supported yet.')
-
-            elif '_crs_' in link['href']:
-                # XXX can we safely assume the link name is the name of the
-                # course?
-                self.crawl(link, path)
+                log(WARNING, 'Forums are not supported yet.')
 
             elif '_file_' in link['href']:
                 if not self.config.download_files:
@@ -131,33 +129,63 @@ class IliasCrawler:
                 # TODO maybe download more files/ not only links with "Download"
                 # maybe also save the text
                 # TODO download handed in assignments
-                self.handle_exercise(link)
+                self.handle_exercise(link, path)
+
+            elif 'cmd=calldirectlink' in link['href']:
+                log(DEBUG, 'External link, skipping')
+                continue
 
             else:
                 log(ERROR,
                     f'Unknown entity: {link["href"]}')
-                self.unknown_files += 1
+                self.unknown_files += 1# }}}
 
     def download_file(self, link, parent_path):# {{{
-        response = self.session.get(link['href'])
+        url = self.fix_url(link['href'])
+        response = self.session.get(url, stream=True)
+        total = response.headers.get('content-length')
 
         disposition = response.headers['content-disposition']
         file_name = re.findall('filename=\"(.+?)\"', disposition)[0]
         if not file_name:
             log(ERROR,
-                'Could not get filename for item '
-                f'{link["href"]} in {parent_path}')
+                f'Could not get filename for item {url} in {parent_path}')
             file_name = 'unknown'
-
         log(INFO, file_name)
 
+        file_path = join(parent_path, file_name)
+
+        # Inspired by
+        # https://sumit-ghosh.com/articles/python-download-progress-bar/
         # TODO add try catch
-        with open(join(parent_path, file_name), 'wb') as file:
-            file.write(response.content)
+        with open(file_path, 'wb') as out_file:
+            if total is None:
+                out_file.write(response.content)
+                return
+
+            downloaded = 0
+            total = int(total)
+            # set_trace()
+            for data in response.iter_content(
+                    chunk_size=max(int(total/1000), 1024*1024)):
+                downloaded += len(data)
+                out_file.write(data)
+                done = int(50*downloaded/total)
+                stdout.write(
+                    f'\r[{"=" * done}{" " * (50-done)}] {downloaded}/{total}')
+                stdout.flush()
+        stdout.write('\n')
 
         rate_limit_sleep()# }}}
 
-    def handle_exercise(self, link, parent_path):
+    def fix_url(self, url):# {{{
+        # TODO improve this
+        if url.startswith('ilias.php'):
+            log(DEBUG, f'Fixing url {url}')
+            return f'{self.config.ilias_url}/{url}'
+        return url# }}}
+
+    def handle_exercise(self, link, parent_path):# {{{
         title = clean_text(link.contents[0])
         log(INFO, f'Descending to exercise {title}')
 
@@ -187,7 +215,7 @@ class IliasCrawler:
 
         # Download all files from the assignments page
         for assignment_link in assignment_links:
-            self.download_file(assignment_link, path)
+            self.download_file(assignment_link, path)# }}}
 
 
 def crawler(session, url, path, create_course_folder=False, indent=0):
