@@ -4,7 +4,7 @@ class Config:
             'download_files': True,
             'download_mediacast': True,
             'download_opencast': True,
-            # 'stitchSideBySideVideos': True,
+            'opencast_merge_videos': False,
             'ILIAS_URL': 'https://ilias3.uni-stuttgart.de',
             'USER_HOME': (
                 'ilias.php?baseClass=ilPersonalDesktopGUI&'
@@ -33,6 +33,10 @@ class Config:
     @property
     def download_opencast(self):
         return self._config['download_opencast']
+
+    @property
+    def opencast_merge_videos(self):
+        return self._config['opencast_merge_videos']
 
     @property
     def ilias_url(self):

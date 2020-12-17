@@ -5,6 +5,7 @@ from os.path import join
 from logging import INFO, DEBUG, WARNING, ERROR, FATAL
 from pdb import set_trace
 from sys import exit, stdout
+from subprocess import run
 
 import requests
 from bs4 import BeautifulSoup as bs, element
@@ -198,6 +199,24 @@ class IliasCrawler:
 
                 track_path_list.append(join(object_path, file_name))
                 self.download_file(track_url, object_path, file_name)
+
+            if len(track_path_list) > 1 and self.config.opencast_merge_videos:
+                log(INFO,
+                    'Merging videos with ffmpeg, '
+                    'this might take a while')
+                arguments = ['ffmpeg', '-hide_banner', '-loglevel', 'warning']
+
+                for video in track_path_list:
+                    arguments.extend(['-i', video])
+
+                arguments.extend([
+                    '-filter_complex',
+                    'hstack',
+                    join(object_path, 'merged.mp4'),
+                    '-y'])
+
+                # TODO add error handling
+                run(arguments, check=True)
 
     def download_file(self, link, parent_path, file_name=None):# {{{
         if isinstance(link, str):

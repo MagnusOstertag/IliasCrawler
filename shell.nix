@@ -8,7 +8,7 @@ let
   ];
   python-for-ilias-downloader = python37.withPackages python-ilias-downloader;
 in pkgs.mkShell {
-  nativeBuildInputs = [ python-for-ilias-downloader ];
+  nativeBuildInputs = [ ffmpeg python-for-ilias-downloader ];
   shellHook = ''
     exec zsh
   '';
