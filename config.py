@@ -1,5 +1,10 @@
+from logging import INFO, DEBUG, WARNING, ERROR, FATAL
+from json import loads
+from json.decoder import JSONDecodeError
+from sys import exit as exit_app
+
 class Config:
-    def __init__(self):
+    def __init__(self, log):
         self._config = {
             'download_files': True,
             'download_mediacast': True,
@@ -18,9 +23,23 @@ class Config:
                 'RepositoryObject/Opencast/api.php/episode.json?id='),
             'save_path': 'ilias_files',
         }
-
-    def update(self, new_config):
-        self._config.update(new_config)
+        try:
+            log(DEBUG, 'Reading config file')
+            with open('.ilias_crawler_config') as config_file:
+                # This will override values from the default config
+                self._config.update(loads(config_file.read()))
+        except FileNotFoundError:
+            log(WARNING,
+                'It seems like the config file is missing! '
+                'Will use the defaults.')
+        except PermissionError:
+            log(FATAL,
+                'Failed to read config file, check permissions! Aborting')
+            exit_app(5)
+        except JSONDecodeError:
+            log(FATAL,
+                'Failed to parse config file! Aborting')
+            exit_app(4)
 
     @property
     def download_files(self):

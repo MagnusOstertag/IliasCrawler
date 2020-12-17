@@ -1,10 +1,8 @@
 import re
-from json import loads
-from json.decoder import JSONDecodeError
 from os.path import join
 from logging import INFO, DEBUG, WARNING, ERROR, FATAL
 from pdb import set_trace
-from sys import exit, stdout
+from sys import exit as exit_app, stdout
 from subprocess import run
 
 import requests
@@ -15,43 +13,26 @@ from config import Config
 
 
 class IliasCrawler:
-    def __init__(self):# {{{
+    def __init__(self):
         log(INFO, 'Instantiating ...')
         self.session = requests.Session()
         self.unknown_files = 0
-        self.config = Config()
-
-        try:
-            log(DEBUG, 'Reading config file')
-            with open('.ilias_crawler_config') as config_file:
-                # This will override values from the default config
-                self.config.update(loads(config_file.read()))
-        except FileNotFoundError:
-            log(WARNING,
-                'It seems like the config file is missing! '
-                'Will use the defaults.')
-        except PermissionError:
-            log(FATAL,
-                'Failed to read config file, check permissions! Aborting')
-            exit(5)
-        except JSONDecodeError:
-            log(FATAL,
-                'Failed to parse config file! Aborting')
-            exit(4)
+        self.config = Config(log)
 
     def __del__(self):
         try:
             self.session.close()
         except Exception as ex:
+            # XXX why does logging produce an exception here?
             # log(ERROR, ex)
-            pass# }}}
+            pass
 
-    def start(self):# {{{
+    def start(self):
         self.login()
         log(INFO, 'Starting crawler')
-        self.crawl(self.config.home_url)# }}}
+        self.crawl(self.config.home_url)
 
-    def login(self):# {{{
+    def login(self):
         try:
             with open('.iliassecret') as cred_file:
                 username, password = cred_file.readlines()
@@ -74,17 +55,17 @@ class IliasCrawler:
         if 'Abmelden' not in response.text:
             log(FATAL,
                 'Login failed! Please check the correctnes of the Login Data.')
-            exit(1)
-        log(INFO, 'Login successful')# }}}
+            exit_app(1)
+        log(INFO, 'Login successful')
 
-    def crawl(self, ilias_link, parent_path=''):# {{{
+    def crawl(self, ilias_link, parent_path=''):
         '''This method crawls an ilias link for different subsections and
         invoke the corrensponding subroutines.'''
         # TODO can there be courses inside of courses?
         # TODO use something link a type?
         # if not membership_links:
         #     log(ERROR, 'You don\'t seem to have subscribed to any courses.')
-        #     exit(2)
+        #     exit_app(2)
         if isinstance(ilias_link, str):
             log(INFO, 'Crawling home')
             name = self.config.save_path
@@ -147,7 +128,7 @@ class IliasCrawler:
             else:
                 log(ERROR,
                     f'Unknown entity: {link["href"]}')
-                self.unknown_files += 1# }}}
+                self.unknown_files += 1
 
     def handle_opencast(self, ilias_link, parent_path):
         ilias_link['href'] = self.fix_url(ilias_link['href'])
@@ -176,10 +157,6 @@ class IliasCrawler:
             log(INFO, object_name)
             object_href = object_link['href']
 
-            if 'ilias_xmh_2778520/d223059c-c82e-49ce-bdc3-886ab1cf5774' not in object_href:
-                log(DEBUG, 'skipping vid')
-                continue
-
             object_path = join(path, object_name)
             mkdir(object_path)
 
@@ -188,7 +165,7 @@ class IliasCrawler:
             response = self.session.get(object_metadata_url)
 
             object_track_list = response.json()['search-results']['result'][
-                    'mediapackage']['media']['track']
+                'mediapackage']['media']['track']
 
             track_path_list = []
             for track in object_track_list:
@@ -218,7 +195,7 @@ class IliasCrawler:
                 # TODO add error handling
                 run(arguments, check=True)
 
-    def download_file(self, link, parent_path, file_name=None):# {{{
+    def download_file(self, link, parent_path, file_name=None):
         if isinstance(link, str):
             url = link
         else:
@@ -258,16 +235,16 @@ class IliasCrawler:
                 stdout.flush()
         stdout.write('\n')
 
-        rate_limit_sleep()# }}}
+        rate_limit_sleep()
 
-    def fix_url(self, url):# {{{
+    def fix_url(self, url):
         # TODO improve this
         if url.startswith('ilias.php'):
             log(DEBUG, f'Fixing url {url}')
             return f'{self.config.ilias_url}/{url}'
-        return url# }}}
+        return url
 
-    def handle_exercise(self, link, parent_path):# {{{
+    def handle_exercise(self, link, parent_path):
         title = clean_text(link.contents[0])
         log(INFO, f'Descending to exercise {title}')
 
@@ -279,6 +256,7 @@ class IliasCrawler:
         soup = bs(response.text, 'html.parser')
 
         # Only get links with the text 'Download'
+        # TODO how do we properly convert a filter to a list?
         assignment_links = [x for x in filter(
             lambda x: (
                 len(x.contents) > 0 and x.contents[0] == 'Download'),
@@ -297,7 +275,7 @@ class IliasCrawler:
 
         # Download all files from the assignments page
         for assignment_link in assignment_links:
-            self.download_file(assignment_link, path)# }}}
+            self.download_file(assignment_link, path)
 
 
 def crawler(session, url, path, create_course_folder=False, indent=0):
@@ -377,6 +355,8 @@ def crawler(session, url, path, create_course_folder=False, indent=0):
 
 if __name__ == '__main__':
     # TODO add cmd line arguments
+    #  if '_crs_' not in BASE_URL:
+    # 'INPUT URL DOES NOT APPEAR TO BE A COURSE, SUPPORT NOT TESTED'
 
     my_crawler = IliasCrawler()
     my_crawler.start()
@@ -390,8 +370,3 @@ if __name__ == '__main__':
 
     log(INFO, 'Finished downloading.')
     log(INFO, 'Shutting down ...')
-
-    # with requests.Session() as session:
-    #     if '_crs_' not in BASE_URL:
-    #         log(WARNING,
-    #             'INPUT URL DOES NOT APPEAR TO BE A COURSE, SUPPORT NOT TESTED')
