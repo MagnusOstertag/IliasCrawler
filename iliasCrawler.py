@@ -115,6 +115,17 @@ class IliasCrawler:
                 # TODO download handed in assignments
                 self.handle_exercise(link, path)
 
+            elif '_lm_' in link['href']:
+                # Lm stands for learning material and is a (rather freely)
+                # structured way of presenting documents and files. This is
+                # completely different from the standard files of ilias. This
+                # should probably be reworked as it is highly specific for
+                # different courses.
+                if self.config.warn_on_lm:
+                    log(WARNING,
+                        '_lm_ handling might not fit your course structure, '
+                        'please double check if it worked correctly.')
+
             elif 'cmd=calldirectlink' in link['href']:
                 log(DEBUG, 'External link, skipping')
                 continue
@@ -278,7 +289,7 @@ class IliasCrawler:
             self.download_file(assignment_link, path)
 
 
-def crawler(session, url, path, create_course_folder=False, indent=0):
+def invalid_function(session, url, path, create_course_folder=False, indent=0):
     if 'ilMediaCastHandler' in link['href']:
         log(ERROR, 'TODO')
         if download_mediacast:
