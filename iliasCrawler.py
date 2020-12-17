@@ -7,7 +7,7 @@ from pdb import set_trace
 from sys import exit, stdout
 
 import requests
-from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup as bs, element
 
 from utils import mkdir, rate_limit_sleep, log, clean_text
 from config import Config
@@ -92,6 +92,8 @@ class IliasCrawler:
             name = ilias_link.contents[0]
             log(INFO, f'Crawling {name}')
 
+        ilias_link['href'] = self.fix_url(ilias_link['href'])
+
         response = self.session.get(ilias_link['href'])
         soup = bs(response.text, 'html.parser')
         # TODO error check
@@ -135,22 +137,84 @@ class IliasCrawler:
                 log(DEBUG, 'External link, skipping')
                 continue
 
+            elif 'ilObjPluginDispatchGUI' in link['href']:
+                if not self.config.download_opencast:
+                    log(DEBUG, 'Will skip downloading opencast videos')
+                    return
+                self.handle_opencast(link, path)
+
             else:
                 log(ERROR,
                     f'Unknown entity: {link["href"]}')
                 self.unknown_files += 1# }}}
 
-    def download_file(self, link, parent_path):# {{{
-        url = self.fix_url(link['href'])
+    def handle_opencast(self, ilias_link, parent_path):
+        ilias_link['href'] = self.fix_url(ilias_link['href'])
+
+        response = self.session.get(ilias_link['href'])
+        soup = bs(response.text, 'html.parser')
+        # TODO error check
+
+        path = join(parent_path, clean_text(ilias_link.contents[0]))
+        mkdir(path)
+
+        object_links = soup.find_all('a', href=re.compile('showEpisode'))
+
+        if len(object_links) < 1:
+            log(INFO, 'no Elements found')
+            return
+
+        for object_link in object_links:
+            # Only use links that only contain text so the preview image links
+            # are ignored! (check if only one child in <a> tag?)
+            object_name = object_link.contents[0]
+            if isinstance(object_name, element.Tag):
+                log(DEBUG, 'Skipping link')
+                continue
+
+            log(INFO, object_name)
+            object_href = object_link['href']
+
+            if 'ilias_xmh_2778520/d223059c-c82e-49ce-bdc3-886ab1cf5774' not in object_href:
+                log(DEBUG, 'skipping vid')
+                continue
+
+            object_path = join(path, object_name)
+            mkdir(object_path)
+
+            object_id = re.findall('&id=(.+?)&', object_href)[0]
+            object_metadata_url = self.config.metadata_url + object_id
+            response = self.session.get(object_metadata_url)
+
+            object_track_list = response.json()['search-results']['result'][
+                    'mediapackage']['media']['track']
+
+            track_path_list = []
+            for track in object_track_list:
+                track_url = track['url']
+
+                track_extension = re.findall(r'\.(\w+)\?token', track_url)[0]
+                file_name = f'{track["id"]}.{track_extension}'
+
+                track_path_list.append(join(object_path, file_name))
+                self.download_file(track_url, object_path, file_name)
+
+    def download_file(self, link, parent_path, file_name=None):# {{{
+        if isinstance(link, str):
+            url = link
+        else:
+            url = link['href']
+        url = self.fix_url(url)
         response = self.session.get(url, stream=True)
         total = response.headers.get('content-length')
 
-        disposition = response.headers['content-disposition']
-        file_name = re.findall('filename=\"(.+?)\"', disposition)[0]
-        if not file_name:
-            log(ERROR,
-                f'Could not get filename for item {url} in {parent_path}')
-            file_name = 'unknown'
+        if file_name is None:
+            disposition = response.headers['content-disposition']
+            file_name = re.findall('filename=\"(.+?)\"', disposition)[0]
+            if not file_name:
+                log(ERROR,
+                    f'Could not get filename for item {url} in {parent_path}')
+                file_name = 'unknown'
         log(INFO, file_name)
 
         file_path = join(parent_path, file_name)
@@ -165,7 +229,6 @@ class IliasCrawler:
 
             downloaded = 0
             total = int(total)
-            # set_trace()
             for data in response.iter_content(
                     chunk_size=max(int(total/1000), 1024*1024)):
                 downloaded += len(data)
@@ -268,115 +331,6 @@ def crawler(session, url, path, create_course_folder=False, indent=0):
                     'Mediacast Element without Download link found',
                     indent + 2)
                 log(ERROR, f'URL: {overview_page_url}', indent + 2)
-
-    elif 'ilObjPluginDispatchGUI' in link['href']:
-        opencast_title = title
-        log(INFO, opencast_title, indent + 1)
-        mkdir(join(path, opencast_title))
-
-        if not download_opencast:
-            continue
-
-        response = session.get(f'{ILIAS_URL}/{link["href"]}')
-        soup = bs4.BeautifulSoup(response.text, 'html.parser')
-        # video_links = soup.find_all('video')
-
-        # for link in video_links:
-        #     link = link.findChildren('source')[0]
-        #     log(WARNING, 'todo')
-        #     response = session.get(
-        #         f'{ilias_url}/{link["src"].lstrip(".")}')
-        #     file_name = re.findall('\/([-.\w]+?)\?', link['src'])[0]
-        #     file_path = join(path, opencast_title, file_name)
-        #     with open(file_path, 'wb') as f:
-        #         f.write(response.content)
-        #
-        object_links = soup.find_all('a', href=re.compile('showEpisode'))
-
-        if len(object_links) < 1:
-            log(INFO, 'no Elements found')
-            continue
-
-        # Experimental: Only use links that only contain text so the
-        # preview image links are ignored! (check if only one child in <a>
-        # tag?)
-        for object_link in object_links:
-            object_name = object_link.contents[0]
-            if isinstance(object_name, bs4.element.Tag):
-                log(DEBUG, 'Skipping link')
-                continue
-
-            # crawlDir(
-            #         session,
-            #         f'{ilias_url}/{link["href"]}',
-            #         path,
-            #         indent=indent + 1)
-            # continue
-
-            object_href = object_link['href']
-            mkdir(join(path, opencast_title, object_name))
-            log(INFO, object_name, indent + 2)
-
-            object_id = re.findall('&id=(.+?)&', object_href)[0]
-            object_metadata_url = (
-                f'{ILIAS_URL}/Customizing/global/plugins/Services/'
-                'Repository/RepositoryObject/Opencast/api.php/'
-                f'episode.json?id={object_id}')
-            response = session.get(object_metadata_url)
-            object_metadata_parsed = loads(response.text)
-            object_track_list = object_metadata_parsed[
-                'search-results'][
-                    'result']['mediapackage']['media']['track']
-
-            track_path_list = []
-
-            for track in object_track_list:
-                track_url = track['url']
-                track_id = track['id']
-                track_extension = re.findall('\.(\w+?)\?', track_url)[0]
-
-                file_path = join(
-                    path,
-                    opencast_title,
-                    object_name,
-                    f'{track_id}.{track_extension}')
-
-                track_path_list.append(file_path)
-
-                log(INFO,
-                    f'Downloading {track_id}.{track_extension} ...',
-                    indent + 3)
-                response = session.get(track_url)
-
-                with open(file_path, 'wb') as file:
-                    file.write(response.content)
-
-            # trackFolderPath = join(path, opencast_title, object_name)
-
-            if len(track_path_list) > 1:
-                log(INFO, 'should be stacked')
-                # log(INFO, 'Stacking videos with ffmpeg...', indent + 4)
-            #
-                # callList = [
-                #         'ffmpeg\\bin\\ffmpeg.exe',
-                #         '-hide_banner', '-loglevel', 'warning']
-            #
-            #     for trackPath in trackPathList:
-            #         callList.extend(['-i', trackPath])
-            #
-                # callList.extend([
-                #     '-filter_complex',
-                #     'hstack=inputs=' + str(
-                #         len(trackPathList)),
-                #     trackFolderPath+'/stacked.mp4','-y'])
-            #
-            #     subprocess.run(callList)
-            #
-            #     log(INFO, 'done', 0)
-            else:
-                log(INFO,
-                    'no ffmpeg stacking needed, only 1 video available',
-                    indent + 4)
 
     elif 'ilobjtestgui' in link['href']:
         test_title = title

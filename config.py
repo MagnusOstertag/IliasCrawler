@@ -13,6 +13,9 @@ class Config:
                 'ilias.php?lang=de&client_id=Uni_Stuttgart&cmd=post'
                 '&cmdClass=ilstartupgui&cmdNode=zq'
                 '&baseClass=ilStartUpGUI&rtoken='),
+            'METADATA_URL': (
+                'Customizing/global/plugins/Services/Repository/'
+                'RepositoryObject/Opencast/api.php/episode.json?id='),
             'save_path': 'ilias_files',
         }
 
@@ -38,6 +41,10 @@ class Config:
     @property
     def home_url(self):
         return f'{self.ilias_url}/{self._config["USER_HOME"]}'
+
+    @property
+    def metadata_url(self):
+        return f'{self.ilias_url}/{self._config["METADATA_URL"]}'
 
     @property
     def login_url(self):
