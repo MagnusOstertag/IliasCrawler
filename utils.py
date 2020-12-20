@@ -85,4 +85,8 @@ def clean_text(text):
     :param text: the text to clean
     :returns: cleaned string
     '''
-    return text.strip().replace('/', '-').replace('?', '')
+    return (
+        text.strip()
+        .replace('/', '-')
+        .replace('!', '')
+        .replace('?', ''))

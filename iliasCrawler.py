@@ -253,6 +253,8 @@ class IliasCrawler:
 
     def fix_url(self, url):
         # TODO improve this
+        if url.startswith('./'):
+            return f'{self.config.ilias_url}/{url[1:]}'
         if url.startswith('ilias.php'):
             log(DEBUG, f'Fixing url {url}')
             return f'{self.config.ilias_url}/{url}'
