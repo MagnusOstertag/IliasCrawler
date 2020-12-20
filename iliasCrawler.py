@@ -1,5 +1,5 @@
 import re
-from os.path import join
+from os.path import join, isfile
 from logging import INFO, DEBUG, WARNING, ERROR, FATAL
 from pdb import set_trace
 from sys import exit as exit_app, stdout
@@ -225,6 +225,9 @@ class IliasCrawler:
         log(INFO, file_name)
 
         file_path = join(parent_path, file_name)
+        if isfile(file_path):
+            log(DEBUG, f'File "{file_path}" already exists, skipping')
+            return
 
         # Inspired by
         # https://sumit-ghosh.com/articles/python-download-progress-bar/
