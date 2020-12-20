@@ -126,6 +126,19 @@ class IliasCrawler:
                         '_lm_ handling might not fit your course structure, '
                         'please double check if it worked correctly.')
 
+                # Ilias is actually saving your progress in the lm, so we need
+                # to fetch the lm root to be able to crawl all the
+                # subsections.
+
+                # TODO error handling
+                lm_number = re.findall(r'_lm_(\d+)\.html', link['href'])[0]
+                lm_overview_url = (
+                    self.config.ilias_url +
+                    f'/ilias.php?ref_id={lm_number}&cmd=showTableOfContents'
+                    '&baseClass=ilLMPresentationGUI')
+
+                self.handle_lm(lm_overview_url, path)
+
             elif 'cmd=calldirectlink' in link['href']:
                 log(DEBUG, 'External link, skipping')
                 continue
@@ -140,6 +153,73 @@ class IliasCrawler:
                 log(ERROR,
                     f'Unknown entity: {link["href"]}')
                 self.unknown_files += 1
+
+    def handle_lm(self, lm_item_url, parent_path):
+        response = self.session.get(lm_item_url)
+        soup = bs(response.text, 'html.parser')
+
+        lm_root = soup.find('li', id="exp_node_lm_exp_1")
+        if not lm_root:
+            log(ERROR, f'Not able to download lm in {parent_path}')
+            return
+        # TODO error check, if there is no such object, the lecture is empty
+
+        # For all direct childs of the root of the lm overview do
+        # TODO implement recursive
+        for list_item in lm_root.ul.find_all('li', recursive=False):
+            lm_text = list_item.find(class_='ilExp2NodeContent').contents[0]
+            path = join(parent_path, clean_text(lm_text))
+            mkdir(path)
+            self.handle_lm_page(list_item.a['href'], lm_text, path)
+
+    def handle_lm_page(self, entry_url, breadcrumb_name, parent_path):
+        entry_url = self.fix_url(entry_url)
+        response = self.session.get(entry_url)
+        soup = bs(response.text, 'html.parser')
+
+        crumbs = soup.find(class_='breadcrumb')
+        breadcrumbs = []
+        for c in crumbs:
+            breadcrumbs.append(c.string)
+
+        next_url = entry_url
+
+        while breadcrumb_name in breadcrumbs:
+            self.download_lm_page_items(next_url, parent_path)
+
+            next_url = soup.find(
+                class_='ilc_page_rnavlink_RightNavigationLink')
+            if not next_url:
+                # We've reached the end of the lm
+                return
+            next_url = self.fix_url(next_url['href'])
+
+            response = self.session.get(next_url)
+            soup = bs(response.text, 'html.parser')
+
+            crumbs = soup.find(class_='breadcrumb')
+            breadcrumbs = []
+            for c in crumbs:
+                breadcrumbs.append(c.string)
+
+    def download_lm_page_items(self, url, path_name):
+        # download video
+        # download pdf files
+        response = self.session.get(url)
+        soup = bs(response.text, 'html.parser')
+
+        for link in soup.find_all('a', class_='ilc_flist_a_FileListItemLink'):
+            if self.config.download_files:
+                # log(WARNING, f'would download pdf in {path_name}')
+                # return
+                self.download_file(link, path_name)
+
+        # TODO use youtube-dl for embedded videos here
+        for video in soup.find_all('video'):
+            if self.config.download_videos:
+                # log(WARNING, f'would download vid in {path_name}')
+                # return
+                self.download_file(video.source['src'], path_name)
 
     def handle_opencast(self, ilias_link, parent_path):
         ilias_link['href'] = self.fix_url(ilias_link['href'])
