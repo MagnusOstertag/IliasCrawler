@@ -1,5 +1,5 @@
 import re
-from os.path import join, isfile
+from os.path import join, isfile, getsize
 from logging import INFO, DEBUG, WARNING, ERROR, FATAL
 from pdb import set_trace
 from sys import exit as exit_app, stdout
@@ -224,10 +224,12 @@ class IliasCrawler:
                 file_name = 'unknown'
         log(INFO, file_name)
 
+        # TODO save in temp folder then copy once done downloading
         file_path = join(parent_path, file_name)
         if isfile(file_path):
-            log(DEBUG, f'File "{file_path}" already exists, skipping')
-            return
+            if total is not None and getsize(file_path) == int(total):
+                log(DEBUG, f'File "{file_path}" already exists, skipping')
+                return
 
         # Inspired by
         # https://sumit-ghosh.com/articles/python-download-progress-bar/

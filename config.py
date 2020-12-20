@@ -9,6 +9,7 @@ class Config:
             'download_files': True,
             'download_mediacast': True,
             'download_opencast': True,
+            'download_videos': True,
             'warn_on_lm': True,
             'opencast_merge_videos': False,
             'ILIAS_URL': 'https://ilias3.uni-stuttgart.de',
@@ -53,6 +54,10 @@ class Config:
     @property
     def download_opencast(self):
         return self._config['download_opencast']
+
+    @property
+    def download_videos(self):
+        return self._config['download_videos']
 
     @property
     def warn_on_lm(self):
