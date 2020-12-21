@@ -129,6 +129,8 @@ class IliasCrawler:
                 # Ilias is actually saving your progress in the lm, so we need
                 # to fetch the lm root to be able to crawl all the
                 # subsections.
+                # TODO should we call the initial page at the end to set the
+                # index correctly again?
 
                 # TODO error handling
                 lm_number = re.findall(r'_lm_(\d+)\.html', link['href'])[0]
@@ -184,6 +186,7 @@ class IliasCrawler:
 
         next_url = entry_url
 
+        # TODO enable merging of files
         while breadcrumb_name in breadcrumbs:
             self.download_lm_page_items(next_url, parent_path)
 
@@ -457,7 +460,10 @@ if __name__ == '__main__':
     # 'INPUT URL DOES NOT APPEAR TO BE A COURSE, SUPPORT NOT TESTED'
 
     my_crawler = IliasCrawler()
-    my_crawler.start()
+    try:
+        my_crawler.start()
+    except KeyboardInterrupt:
+        log(ERROR, 'Aborted by user')
 
     if my_crawler.unknown_files > 0:
         log(WARNING,
