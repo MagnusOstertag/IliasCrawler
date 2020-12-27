@@ -8,7 +8,7 @@ from subprocess import run
 import requests
 from bs4 import BeautifulSoup as bs, element
 
-from utils import mkdir, rate_limit_sleep, log, clean_text
+from utils import mkdir, rate_limit_sleep, log, clean_text, breadcrumb_matches
 from config import Config
 
 
@@ -187,7 +187,7 @@ class IliasCrawler:
         next_url = entry_url
 
         # TODO enable merging of files
-        while breadcrumb_name in breadcrumbs:
+        while breadcrumb_matches(breadcrumb_name, breadcrumbs):
             self.download_lm_page_items(next_url, parent_path)
 
             next_url = soup.find(

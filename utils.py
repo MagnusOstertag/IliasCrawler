@@ -90,3 +90,17 @@ def clean_text(text):
         .replace('/', '-')
         .replace('!', '')
         .replace('?', ''))
+
+
+def breadcrumb_matches(current_crumb, breadcrumbs):
+    '''Ilias cuts off text of the breadcrumb if the strings are too long'''
+    for breadcrumb in breadcrumbs:
+        if not breadcrumb:
+            continue
+        # log(logging.DEBUG, f'breadcrumb is {breadcrumb}')
+        if breadcrumb[-1] == '…':
+            if current_crumb.startswith(breadcrumb[:-1]):
+                return True
+        elif breadcrumb == current_crumb:
+            return True
+    return False
