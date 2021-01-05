@@ -6,6 +6,7 @@ from sys import exit as exit_app
 class Config:
     def __init__(self, log):
         self._config = {
+            'skip_courses': [],
             'download_files': True,
             'download_mediacast': True,
             'download_opencast': True,
@@ -42,6 +43,10 @@ class Config:
             log(FATAL,
                 'Failed to parse config file! Aborting')
             exit_app(4)
+
+    @property
+    def skip_courses(self):
+        return self._config['skip_courses']
 
     @property
     def download_files(self):

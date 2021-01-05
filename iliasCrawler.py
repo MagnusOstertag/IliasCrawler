@@ -8,7 +8,14 @@ from subprocess import run
 import requests
 from bs4 import BeautifulSoup as bs, element
 
-from utils import mkdir, rate_limit_sleep, log, clean_text, breadcrumb_matches
+from utils import (
+    mkdir,
+    rate_limit_sleep,
+    log,
+    clean_text,
+    breadcrumb_matches,
+    link_should_be_skipped
+)
 from config import Config
 
 
@@ -91,6 +98,9 @@ class IliasCrawler:
 
         for link in links:
             if '_fold_' in link['href'] or '_crs_' in link['href']:
+                if link_should_be_skipped(link, self.config.skip_courses):
+                    log(DEBUG, f'Skipping course {link.contents[0]}')
+                    continue
                 # XXX can we safely assume the link name is the name of the
                 # course?
                 self.crawl(link, path)
@@ -148,7 +158,7 @@ class IliasCrawler:
             elif 'ilObjPluginDispatchGUI' in link['href']:
                 if not self.config.download_opencast:
                     log(DEBUG, 'Will skip downloading opencast videos')
-                    return
+                    continue
                 self.handle_opencast(link, path)
 
             else:
@@ -463,7 +473,7 @@ if __name__ == '__main__':
     try:
         my_crawler.start()
     except KeyboardInterrupt:
-        log(ERROR, 'Aborted by user')
+        log(WARNING, 'Aborted by user')
 
     if my_crawler.unknown_files > 0:
         log(WARNING,

@@ -104,3 +104,11 @@ def breadcrumb_matches(current_crumb, breadcrumbs):
         elif breadcrumb == current_crumb:
             return True
     return False
+
+
+def link_should_be_skipped(link, skipping_courses):
+    '''Return True if a link should be skipped'''
+    for coursenumber in skipping_courses:
+        if link['href'].find(coursenumber) != -1:
+            return True
+    return False
