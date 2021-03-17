@@ -261,7 +261,7 @@ class IliasCrawler:
             log(INFO, object_name)
             object_href = object_link['href']
 
-            object_path = join(path, object_name)
+            object_path = join(path, clean_text(object_name))
             mkdir(object_path)
 
             object_id = re.findall('&id=(.+?)&', object_href)[0]
@@ -318,7 +318,7 @@ class IliasCrawler:
         log(INFO, file_name)
 
         # TODO save in temp folder then copy once done downloading
-        file_path = join(parent_path, file_name)
+        file_path = join(parent_path, clean_text(file_name))
         if isfile(file_path):
             if total is not None and getsize(file_path) == int(total):
                 log(DEBUG, f'File "{file_path}" already exists, skipping')
@@ -379,7 +379,7 @@ class IliasCrawler:
             return
 
         # TODO should we create the directory even if there are no files?
-        path = join(parent_path, title)
+        path = join(parent_path, clean_text(title))
         mkdir(path)
 
         log(DEBUG, f'Found {len(assignment_links)} download link(s)')
@@ -425,7 +425,7 @@ def invalid_function(session, url, path, create_course_folder=False, indent=0):
                 file_name = re.findall(
                     'filename=\"(.+?)\"', disposition)[0]
 
-                file_path = join(path, file_name)
+                file_path = join(path, clean_text(file_name))
 
                 with open(file_path, 'wb') as file:
                     file.write(response.content)
