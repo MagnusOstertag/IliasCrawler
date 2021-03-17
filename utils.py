@@ -112,3 +112,11 @@ def link_should_be_skipped(link, skipping_courses):
         if link['href'].find(coursenumber) != -1:
             return True
     return False
+
+
+def link_should_be_included(link, incl_courses):
+    '''Return True if a link should be skipped'''
+    for coursenumber in incl_courses:
+        if link['href'].find(coursenumber) != -1:
+            return True
+    return False

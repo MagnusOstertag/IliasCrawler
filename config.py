@@ -7,6 +7,7 @@ class Config:
     def __init__(self, log):
         self._config = {
             'skip_courses': [],
+            'incl_courses': [],
             'download_files': True,
             'download_mediacast': True,
             'download_opencast': True,
@@ -47,6 +48,10 @@ class Config:
     @property
     def skip_courses(self):
         return self._config['skip_courses']
+
+    @property
+    def incl_courses(self):
+        return self._config['incl_courses']
 
     @property
     def download_files(self):

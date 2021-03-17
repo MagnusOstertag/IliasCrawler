@@ -14,7 +14,8 @@ from utils import (
     log,
     clean_text,
     breadcrumb_matches,
-    link_should_be_skipped
+    link_should_be_skipped,
+    link_should_be_included
 )
 from config import Config
 
@@ -98,12 +99,22 @@ class IliasCrawler:
 
         for link in links:
             if '_fold_' in link['href'] or '_crs_' in link['href']:
-                if link_should_be_skipped(link, self.config.skip_courses):
-                    log(DEBUG, f'Skipping course {link.contents[0]}')
-                    continue
+                if (len(self.config.skip_courses) == 0 and len(self.config.incl_courses) == 0):
+                    self.crawl(link, path)
+                if len(self.config.skip_courses) > 0 and len(self.config.incl_courses) > 0:
+                    log(ERROR, "you can only use include or exclude not both")
+                    exit()
+                if len(self.config.skip_courses) > 0:
+                    if link_should_be_skipped(link, self.config.skip_courses):
+                        log(DEBUG, f'Skipping course {link.contents[0]}')
+                        continue
+                    self.crawl(link, path)
+                if len(self.config.incl_courses) > 0:
+                    if link_should_be_included(link, self.config.incl_courses):
+                        log(DEBUG, f'Downloading course because its included: {link.contents[0]}')
+                        self.crawl(link, path)
                 # XXX can we safely assume the link name is the name of the
                 # course?
-                self.crawl(link, path)
 
             elif 'cmd=infoScreen' in link['href']:
                 self.crawl(link, path)
