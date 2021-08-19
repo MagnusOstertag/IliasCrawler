@@ -20,7 +20,7 @@ class Config:
                 'cmd=jumpToMemberships'),
             'LOGIN_URL': (
                 'ilias.php?lang=de&client_id=Uni_Stuttgart&cmd=post'
-                '&cmdClass=ilstartupgui&cmdNode=zq'
+                '&cmdClass=ilstartupgui&cmdNode=zy'
                 '&baseClass=ilStartUpGUI&rtoken='),
             'METADATA_URL': (
                 'Customizing/global/plugins/Services/Repository/'
