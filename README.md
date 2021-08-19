@@ -21,7 +21,7 @@ Es sollte sich eine Kommandozeile öffnen bei welcher Pfad vor dem Cursor der Pf
 Nun sollten alles vorbereitet sein und du kannst das Programm mit "python iliasCrawler.py" starten.
 
 ## Config
-Es gibt zwei config dateien, einmal `.iliassecrets`
+Es gibt zwei config dateien, einmal `.iliassecret`
 ```
 username
 password
