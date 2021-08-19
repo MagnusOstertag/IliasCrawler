@@ -98,7 +98,7 @@ class IliasCrawler:
         mkdir(path)
 
         for link in links:
-            if '_fold_' in link['href'] or '_crs_' in link['href']:
+            if '_crs_' in link['href']: #'_fold_' in link['href'] or
                 if (len(self.config.skip_courses) == 0 and len(self.config.incl_courses) == 0):
                     self.crawl(link, path)
                 if len(self.config.skip_courses) > 0 and len(self.config.incl_courses) > 0:
@@ -115,6 +115,9 @@ class IliasCrawler:
                         self.crawl(link, path)
                 # XXX can we safely assume the link name is the name of the
                 # course?
+
+            elif '_fold_' in link['href']:
+                self.handle_folder(link, path)
 
             elif 'cmd=infoScreen' in link['href']:
                 self.crawl(link, path)
@@ -398,6 +401,55 @@ class IliasCrawler:
         # Download all files from the assignments page
         for assignment_link in assignment_links:
             self.download_file(assignment_link, path)
+
+    def handle_folder(self, link, parent_path):
+        title = clean_text(link.contents[0])
+        log(INFO, f'Descending to folder {title}')
+
+        if not self.config.download_files:
+            log(INFO, 'Downloading of files disabled in the config. Skipping')
+            return
+
+        response = self.session.get(link['href'])
+        soup = bs(response.text, 'html.parser')
+
+        # Only get links with the text 'Download'
+        # TODO how do we properly convert a filter to a list?
+        assignment_links = [x.get('href') for x in filter(
+            lambda x: (
+                'download' in str(x.get('href'))),
+            soup.find_all('a'))]
+        folder_links = [x for x in filter(
+                        lambda x: (
+                            '_fold_' in str(x.get('href')) and
+                            not 'Link zu dieser Seite:' in x.text and
+                            not 'Zu ILIAS-Bookmarks hinzufügen' in x.text),
+                        soup.find_all('a'))]
+
+        # Nothing to do if there are no links
+        if len(assignment_links) < 1 and len(folder_links) < 1:
+            log(DEBUG, 'Nothing to see here, returning to crawling')
+            return
+        elif len(assignment_links) < 1:
+            log(DEBUG, 'No download links found in folder')
+        elif len(folder_links) < 1:
+            log(DEBUG, 'No furhter folders found in folder')
+
+        # TODO should we create the directory even if there are no files?
+        path = join(parent_path, clean_text(title))
+        mkdir(path)
+
+        log(DEBUG, f'Found {len(assignment_links)} download link(s)')
+
+        # Download all files from the assignments page
+        for assignment_link in assignment_links:
+            self.download_file(assignment_link, path)
+
+        # recursively descent into the folders
+        for folder_link in folder_links:
+            self.handle_folder(folder_link, path)
+
+        #TODO also be able to handle other types of content of the folders
 
 
 def invalid_function(session, url, path, create_course_folder=False, indent=0):

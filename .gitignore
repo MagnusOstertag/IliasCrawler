@@ -2,6 +2,7 @@ temp/
 ilias_files/
 ilias_files
 .iliassecret
+.ilias_crawler_config
 last_run.dat
 log.txt
 # careful here, we might have documentation at some point
